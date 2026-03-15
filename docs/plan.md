@@ -244,21 +244,70 @@ The explorer is the "data story" companion to the demo's "hear it yourself" expe
 3. Push results
 4. Update "Last updated" timestamp in explorer
 
+## Branding & Chrome
+
+### Title
+"Deepgram Benchmark Explorer" — future-proofs for STT and VA API tabs.
+
+### Header
+```
+[Deepgram logo] Deepgram Benchmark Explorer
+
+TTS | STT (coming soon) | Voice Agent API (coming soon) | About
+```
+- Deepgram logo same treatment as tts-comparison-demo
+- Dark theme throughout (matches TTS demo and Coval)
+- STT and VA API tabs link to "coming soon" page with CTA to product page/docs/playground
+
+### About / Methodology Page
+Combined "About This Benchmark" page:
+- Who runs it — Deepgram (transparent, not hidden)
+- How it's run — methodology summary (latency: sequential, 20 runs, warmup; WER: TTS→STT→Haiku)
+- Link to open-source GitHub repo (full benchmark code)
+- Link to Coval's independent benchmark (third-party validation)
+- How often it's updated (event-driven + quarterly)
+- Acknowledged limitations (single location, residential network, etc.)
+- This is the credibility page — when a prospect asks "isn't it biased?" the rep sends them here
+
+### Footer
+- "Benchmarks by Deepgram" with link to deepgram.com
+- Link to GitHub methodology
+- "Last updated: March 2026" timestamp
+- Links: About | GitHub | TTS Demo | Contact Sales
+
+### Disclosure
+Transparent throughout:
+- Header: "Deepgram Benchmark Explorer" (not hiding who runs it)
+- About page: full methodology disclosure
+- Footer: "Benchmarks by Deepgram" + GitHub link
+- Open source code = anyone can verify or reproduce
+
+### CTA
+Minimal for v1 (sales-driven, prospects already in funnel):
+- "Try the TTS Demo" button (links to tts-comparison-demo.fly.dev)
+- "Contact Sales" link
+- Bottom of page, not aggressive — data sells itself
+
+### Mobile
+Responsive design from v1. Prospects may open the link on their phone during a sales call. Charts should stack vertically and remain readable on smaller screens.
+
 ## Open Questions
 
-1. **Audio playback in explorer?** Could embed WAV files for WER mismatches so prospects can hear the errors. Would need audio file hosting (Supabase storage or S3).
-2. **Methodology page?** Static page explaining how benchmarks are run, linking to GitHub repo for transparency.
-3. **Raw data download?** Let visitors download CSVs for their own analysis?
-4. **Deepgram branding?** Subtle or prominent? This is a Deepgram-run benchmark, should be transparent about that.
-5. **Mobile responsive?** Probably not priority for v1 — reps use it on laptops in sales calls.
+1. **Audio hosting** — WAV files for accuracy deep dive need hosting. Supabase storage or S3? Or bundle with the frontend deploy?
+2. **Price data** — Include pricing in scatterplot bubble size and heatmap? Requires data collection. Coval has it.
+3. **Raw data download** — Let visitors download CSVs? Builds trust but gives competitors your data.
 
 ## Milestones
 
-1. **Database setup** — Supabase tables, push script
-2. **Scaffold frontend** — React + Vite + Tailwind, deploy to Fly.io
-3. **Hero chart** — TTFA vs WER scatterplot with filters
-4. **TTFA view** — bar chart with content type filters
-5. **WER view** — bar chart with category hierarchy
-6. **Provider comparison** — side-by-side view
-7. **Polish** — methodology page, branding, loading states
-8. **Connect to live data** — push script, auto-refresh
+1. **Scaffold frontend** — React + Vite + Tailwind, dark theme, deploy to Fly.io
+2. **Database setup** — Supabase tables, push script from benchmark CSVs
+3. **Provider sidebar** — persistent selector with vendor grouping
+4. **Chart 1: Latency Rankings** — hero bar chart with metric toggle + warmup toggle
+5. **Chart 2: Latency Variation** — box plots
+6. **Chart 3: Accuracy Rankings** — bar chart with WER/PER/Critical PER toggle
+7. **Chart 4: Accuracy Deep Dive** — subcategory breakdown + audio samples
+8. **Chart 5: Scatterplot** — TTFA vs WER
+9. **Chart 6: Heatmap** — sortable performance table
+10. **About page** — methodology, disclosure, GitHub link
+11. **Polish** — loading states, mobile responsive, animations
+12. **STT / VA API tabs** — coming soon pages
