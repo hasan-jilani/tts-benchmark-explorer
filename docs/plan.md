@@ -23,73 +23,103 @@ The prospect journey: fast → accurate → no tradeoff. Each section builds on 
 
 ### Global Controls (persistent across all charts)
 
-**Provider selector** — sidebar or top bar (like Coval). Select/deselect any provider. All charts update simultaneously. Deepgram always on by default. Grouped by vendor (ElevenLabs ›, Cartesia ›, etc.).
+**Provider selector** — sidebar, grouped by vendor (ElevenLabs ›, Cartesia ›, etc.).
+- Default selection: 1 recommended model per vendor (5 providers):
+  - Deepgram Aura-2 (always on)
+  - ElevenLabs Flash v2.5
+  - Cartesia Sonic 3
+  - Rime Mist v2
+  - OpenAI gpt-4o-mini-tts
+- Expand vendor to see/add additional models (e.g., ElevenLabs Multilingual, v3, Turbo)
+- All charts update simultaneously when selection changes
+- Each provider has a persistent color across all charts. Deepgram = green.
 
-**Content type filter** — global dropdown or pill selector. Filter all charts to a specific content type or category. Options:
-- All (default)
-- Conversational
-- Alphanumeric (all)
-  - Identifiers
-  - Formatted Entities
-  - Mixed
-- Individual subcategories (currency, tracking, VINs, etc.)
+**Content type filters** — per-section, not global. Latency and WER have different prompt sets with different categories.
+- Latency section filter: conversational-short, conversational-medium, conversational-long, customer-service, ivr, alphanumeric, mixed, casual
+- WER section filter: conversational, identifiers, formatted-entities, mixed (plus 13 subcategories)
+- Scatterplot: uses WER categories (since it maps latency vs accuracy)
 
-Every chart below responds to both controls.
+**Note:** Not all providers have data for all charts (e.g., WER only has 3 providers so far). Charts should gracefully handle missing data — show available providers, note "data pending" for others.
 
 ### 1. Hero: Latency Rankings
-Bar chart sorted by median TTFA. Deepgram clearly #1. Immediate visual impact.
-- Deepgram visually highlighted (color, label, or annotation)
+Vertical bar chart. Deepgram anchored left, competitors trailing right. Sorted fastest to slowest.
+- Default metric: median TTFA
 - Metric toggle: median / mean / p95
-- Error bars showing variance
-- Hover: exact values, sample count
-- Click bar: highlight that provider across all charts
+- Error bars or variance indicators
+- Deepgram bar in green, competitors in persistent per-provider colors
+- Hover: tooltip with median, mean, p95, stdev, sample count
+- Responds to content type filter (bars re-sort, values change, subtle animation on transition)
 - Answers: "How fast does it start speaking?"
 
-### 2. Latency Variation
-Box plots showing TTFA distribution per provider.
-- Shows consistency — Deepgram has tightest spread
-- p25, p50, p75, whiskers, outliers visible
-- Responds to global content type filter (distribution changes by content)
-- Hover: exact percentile values
+### 2. Latency Variation (deep dive)
+Vertical box plots — one per provider, same left-to-right sort order as chart 1.
+- Box: p25 to p75. Line: p50 (median). Whiskers: p5/p95. Dots: outliers.
+- Shows consistency — Deepgram has tightest box, OpenAI has widest
+- Same content type filter as chart 1 (shared within latency section)
+- Hover: exact p25, p50, p75, p95, stdev values
+- No toggles — box plot shows everything at once
+- Answers: "How consistent is the latency?"
 
 ### 3. Accuracy Rankings
-Bar chart by provider showing pronunciation accuracy.
+Vertical bar chart. Lowest WER on left, worst on right.
+- Default metric: WER
 - Metric toggle: WER / PER / Critical PER
-- Severity toggle: show critical only, minor only, or both (stacked)
-- Category filter integrates with global control
-- Hover: exact values, sample count
-- Click bar: highlight provider across all charts
+- On PER/Critical PER: stacked bars — critical (dark) + minor (light) segments
+- On WER: single-color bars
+- WER section content type filter: conversational, identifiers, formatted-entities, mixed (plus subcategories)
+- Hover: exact WER, PER, Critical PER, sample count
+- Same provider colors as latency charts
 - Answers: "How accurately does it pronounce things?"
 
-### 4. Accuracy Deep Dive
-Subcategory breakdown (13 subcategories).
-- Grouped bar or heatmap showing per-subcategory accuracy
-- Currency, tracking numbers, VINs, serial numbers, etc.
+### 4. Accuracy Deep Dive + Audio Samples (deep dive)
+Subcategory breakdown with embedded audio examples.
+
+**Chart:** Grouped bars or heatmap — providers as columns, subcategories as rows.
+- Currency, tracking numbers, VINs, serial numbers, addresses, dates, etc.
+- Metric toggle carries over from chart 3 (WER / PER / Critical PER)
+- Hover: exact values per provider per subcategory
 - Shows where Flash falls apart (currency 73% critical PER)
 - Shows where Deepgram and Cartesia differ
-- Metric toggle carries over from section 3
-- Hover: exact values per provider per subcategory
+
+**Audio samples:** Curated side-by-side comparisons per subcategory.
+- Click subcategory row or "hear examples" button to expand
+- Shows prompt text, then per-provider: play button + transcript + severity badge
+- Curated to highlight where DG gets it right and competitors don't
+- Example:
+  Prompt: "Your balance is $320,540.54"
+  ▶ Deepgram  ✓ MATCH  "...three hundred twenty thousand five hundred and forty dollars..."
+  ▶ Flash     ✗ CRITICAL  "...three hundred twenty five forty fom"
+- Audio from WER benchmark WAV files (results-wer/audio/)
+- Answers: "What does a pronunciation error actually sound like?"
 
 ### 5. The Scatterplot: Latency vs Accuracy
-The "aha moment" — TTFA on X, WER on Y. Each provider is a dot.
+The "aha moment" — TTFA on X, WER on Y. One dot per provider.
+- Uses overall metrics (not content-type filtered — latency and WER use different prompt sets with only 7 overlapping prompts)
 - Deepgram: bottom-left (fast + accurate)
 - Cartesia: slightly right, same height (slower, equally accurate)
 - ElevenLabs Flash: low X, high Y (fast but inaccurate)
 - ElevenLabs Multilingual/v3: high X, lower Y (accurate but slow)
-- Bubble size = optional third dimension (consistency? p95?)
-- Responds to global content type filter — dots shift when filtering to alphanumeric
-- Hover: provider name, exact TTFA, exact WER
-- Click: highlight provider across all charts
+- Bubble size: TBD — price per character would add a third dimension (cheap + fast + accurate). Requires pricing data collection.
+- Hover: provider name, exact TTFA, exact WER, price (if available)
+- Follows sidebar provider selection
+- No content type filter (overall metrics only)
 - The payoff: prospect has seen latency and accuracy separately. The scatterplot confirms no tradeoff.
+- Answers: "Is there a catch? Do I have to choose between speed and accuracy?"
 
-### 6. Content Type Sensitivity Heatmap
-Providers as rows, content types as columns. Color intensity = performance.
-- Toggle between latency heatmap and accuracy heatmap
-- Deepgram's row uniformly green (content-agnostic)
-- Cartesia/ElevenLabs show red spots on alphanumeric
-- Sortable columns (click header to sort by that content type)
+### 6. Performance Heatmap
+Providers as rows, metrics as columns. Color intensity = performance (green = good, red = bad, relative to best in column).
+
+Toggle: "Latency | Accuracy" pill switch at top.
+
+**Latency view columns:** p50 TTFA, p95 TTFA, stdev, price (when available)
+**Accuracy view columns:** WER, PER, Critical PER, price (when available)
+
+- Sortable columns — click header to sort by that metric
 - Hover: exact value per cell
-- Responds to provider selector (hide/show rows)
+- Follows sidebar provider selection (hide/show rows)
+- Deepgram's row uniformly green across both views
+- The "reference table" — prospect can compare any metric at a glance
+- Answers: "Give me the full picture in one view"
 
 ## Data Architecture
 
