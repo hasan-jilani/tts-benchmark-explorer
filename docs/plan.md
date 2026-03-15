@@ -82,14 +82,29 @@ Subcategory breakdown with embedded audio examples.
 - Shows where Deepgram and Cartesia differ
 
 **Audio samples:** Curated side-by-side comparisons per subcategory.
-- Click subcategory row or "hear examples" button to expand
-- Shows prompt text, then per-provider: play button + transcript + severity badge
-- Curated to highlight where DG gets it right and competitors don't
-- Example:
-  Prompt: "Your balance is $320,540.54"
-  ▶ Deepgram  ✓ MATCH  "...three hundred twenty thousand five hundred and forty dollars..."
-  ▶ Flash     ✗ CRITICAL  "...three hundred twenty five forty fom"
-- Audio from WER benchmark WAV files (results-wer/audio/)
+- Click subcategory row or "▶ Hear examples" button to expand
+- Dynamic based on sidebar provider selection — only shows selected providers
+- Always shows Deepgram match (green ✓) + selected competitors with critical errors (red ✗)
+- Never shows competitor matches (no point) or DG errors (curated for impact)
+
+**Curation logic:**
+1. For each subcategory, find prompts where DG = match AND at least one selected competitor = critical
+2. Pick 2-3 best examples per subcategory (most dramatic contrast)
+3. If no DG match + competitor critical examples exist for a subcategory, no audio panel — just chart data
+4. Never show a prompt where DG has any error (match only)
+
+**Example (sidebar: Deepgram + Flash + Cartesia):**
+  Currency → "Your balance is $320,540.54"
+  ▶ Deepgram     ✓ MATCH  "...three hundred twenty thousand five hundred and forty dollars..."
+  ▶ Flash        ✗ CRITICAL  "...three hundred twenty five forty fom"
+  (Cartesia not shown — they got it right on this prompt)
+
+**Per-provider display:**
+- Play button (inline audio, no download/navigation)
+- Severity badge (color-coded)
+- Transcript text (muted font)
+
+**Data source:** WAV files from WER benchmark (results-wer/audio/). Hosted in Supabase storage or S3.
 - Answers: "What does a pronunciation error actually sound like?"
 
 ### 5. The Scatterplot: Latency vs Accuracy
