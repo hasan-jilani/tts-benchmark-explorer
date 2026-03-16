@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts'
 import { PROVIDER_CONFIG, getChartLabel } from '../lib/providers'
 import { computeAccuracyStats, getWerCategories, getWerSubcategories } from '../lib/stats'
@@ -36,6 +36,7 @@ function CustomXTick({ x, y, payload }) {
 export default function AccuracyRankings({ data, selectedProviders }) {
   const [metric, setMetric] = useState('wer')
   const [category, setCategory] = useState('all')
+  const [subcategory, setSubcategory] = useState('all')
 
   // Build category -> subcategory map for the dropdown
   const categoryMap = useMemo(() => {
@@ -47,9 +48,18 @@ export default function AccuracyRankings({ data, selectedProviders }) {
     return map
   }, [data])
 
+  // Subcategories for the selected category
+  const subcategories = useMemo(
+    () => category !== 'all' ? categoryMap[category] || [] : [],
+    [category, categoryMap]
+  )
+
+  // The filter value passed to stats: subcategory if chosen, else category
+  const filterValue = subcategory !== 'all' ? subcategory : category
+
   const stats = useMemo(
-    () => computeAccuracyStats(data, selectedProviders, category),
-    [data, selectedProviders, category]
+    () => computeAccuracyStats(data, selectedProviders, filterValue),
+    [data, selectedProviders, filterValue]
   )
 
   // Sort by selected metric ascending (lowest error first = best)
@@ -108,11 +118,11 @@ export default function AccuracyRankings({ data, selectedProviders }) {
           ))}
         </div>
 
-        {/* Category filter with optgroups */}
+        {/* Category filter */}
         <div className="select-wrap">
           <select
             value={category}
-            onChange={e => setCategory(e.target.value)}
+            onChange={e => { setCategory(e.target.value); setSubcategory('all') }}
             className="px-3 py-1.5 text-xs rounded border-none outline-none"
             style={{
               background: 'var(--bg-medium)',
@@ -120,16 +130,31 @@ export default function AccuracyRankings({ data, selectedProviders }) {
             }}
           >
             <option value="all">All content types</option>
-            {Object.entries(categoryMap).map(([cat, subs]) => (
-              <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
-                <option value={cat}>{cat} (all)</option>
-                {subs.map(sub => (
-                  <option key={sub} value={sub}>{sub}</option>
-                ))}
-              </optgroup>
+            {Object.keys(categoryMap).map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
         </div>
+
+        {/* Subcategory filter — only shown when a category is selected */}
+        {category !== 'all' && subcategories.length > 0 && (
+          <div className="select-wrap">
+            <select
+              value={subcategory}
+              onChange={e => setSubcategory(e.target.value)}
+              className="px-3 py-1.5 text-xs rounded border-none outline-none"
+              style={{
+                background: 'var(--bg-medium)',
+                color: 'var(--text-body)',
+              }}
+            >
+              <option value="all">All {category}</option>
+              {subcategories.map(sub => (
+                <option key={sub} value={sub}>{sub}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Chart */}
@@ -190,7 +215,16 @@ export default function AccuracyRankings({ data, selectedProviders }) {
 
       {/* Takeaway */}
       {sorted.length >= 2 && (
-        <Takeaway stats={sorted} metric={metric} category={category} />
+        <Takeaway stats={sorted} metric={metric} category={filterValue} />
+      )}
+
+      {/* Audio samples — only when a subcategory is selected */}
+      {subcategory !== 'all' && (
+        <AudioSamples
+          data={data}
+          subcategory={subcategory}
+          selectedProviders={selectedProviders}
+        />
       )}
     </div>
   )
@@ -214,6 +248,215 @@ function CustomTooltip({ active, payload }) {
         <div>PER: <span className="font-medium">{data.per.toFixed(1)}%</span></div>
         <div>Critical PER: <span className="font-medium">{data.criticalPer.toFixed(1)}%</span></div>
         <div style={{ color: 'var(--text-muted)' }}>n = {data.n}</div>
+      </div>
+    </div>
+  )
+}
+
+function AudioSamples({ data, subcategory, selectedProviders }) {
+  const [expanded, setExpanded] = useState(false)
+  const audioRef = useRef(null) // currently playing HTMLAudioElement
+  const [playingUrl, setPlayingUrl] = useState(null)
+
+  const handlePlay = useCallback((url) => {
+    if (!url) return
+    // If clicking the same one that's playing, pause it
+    if (audioRef.current && playingUrl === url) {
+      audioRef.current.pause()
+      audioRef.current = null
+      setPlayingUrl(null)
+      return
+    }
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause()
+    }
+    const audio = new Audio(url)
+    audio.addEventListener('ended', () => {
+      setPlayingUrl(null)
+      audioRef.current = null
+    })
+    audio.play()
+    audioRef.current = audio
+    setPlayingUrl(url)
+  }, [playingUrl])
+
+  // Curate top examples: DG match + competitor critical
+  const examples = useMemo(() => {
+    const filtered = data.filter(
+      r => r.subcategory === subcategory && selectedProviders.includes(r.provider)
+    )
+
+    // Group by prompt_id + provider, keep first iteration only
+    const byPromptProvider = {}
+    for (const row of filtered) {
+      const key = `${row.prompt_id}:${row.provider}`
+      if (!byPromptProvider[key]) byPromptProvider[key] = row
+    }
+    const deduped = Object.values(byPromptProvider)
+
+    // Group by prompt_id
+    const byPrompt = {}
+    for (const row of deduped) {
+      if (!byPrompt[row.prompt_id]) byPrompt[row.prompt_id] = []
+      byPrompt[row.prompt_id].push(row)
+    }
+
+    // Find prompts where DG matched and at least one competitor is critical
+    const candidates = []
+    for (const [promptId, rows] of Object.entries(byPrompt)) {
+      const dgRow = rows.find(r => r.provider === 'deepgram-aura2')
+      if (!dgRow || dgRow.match !== true) continue
+
+      const competitorRows = rows.filter(r => r.provider !== 'deepgram-aura2')
+      const criticalCount = competitorRows.filter(r => r.severity === 'critical').length
+      if (criticalCount === 0) continue
+
+      candidates.push({
+        promptId,
+        original: dgRow.original,
+        dgRow,
+        competitors: competitorRows
+          .filter(r => r.severity === 'critical' || r.severity === 'minor')
+          .sort((a, b) => {
+            // critical first, then minor
+            if (a.severity === 'critical' && b.severity !== 'critical') return -1
+            if (a.severity !== 'critical' && b.severity === 'critical') return 1
+            return 0
+          }),
+        criticalCount,
+      })
+    }
+
+    // Rank by number of critical competitors, take top 3
+    candidates.sort((a, b) => b.criticalCount - a.criticalCount)
+    return candidates.slice(0, 3)
+  }, [data, subcategory, selectedProviders])
+
+  if (examples.length === 0) return null
+
+  return (
+    <div
+      className="mt-3 rounded-lg overflow-hidden"
+      style={{ background: 'var(--bg-medium-dark)' }}
+    >
+      {/* Collapsible header */}
+      <button
+        onClick={() => setExpanded(prev => !prev)}
+        className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium"
+        style={{ color: 'var(--text-primary)', background: 'transparent' }}
+      >
+        <span
+          className="inline-block transition-transform duration-200"
+          style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+        >
+          ▶
+        </span>
+        Hear examples
+        <span
+          className="ml-1 px-2 py-0.5 rounded-full text-xs font-medium"
+          style={{ background: 'var(--bg-medium)', color: 'var(--text-muted)' }}
+        >
+          {examples.length} {examples.length === 1 ? 'example' : 'examples'}
+        </span>
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          {examples.map((example, idx) => (
+            <div
+              key={example.promptId}
+              className="rounded-lg p-4"
+              style={{
+                background: 'var(--bg-dark)',
+                borderTop: idx > 0 ? '1px solid var(--bg-medium)' : 'none',
+              }}
+            >
+              {/* Original prompt text */}
+              <p className="text-sm mb-3" style={{ color: 'var(--text-body)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Prompt: </span>
+                &ldquo;{example.original}&rdquo;
+              </p>
+
+              {/* DG row */}
+              <AudioRow
+                row={example.dgRow}
+                isPlaying={playingUrl === example.dgRow.audio_url}
+                onPlay={handlePlay}
+              />
+
+              {/* Competitor rows */}
+              {example.competitors.map(row => (
+                <AudioRow
+                  key={row.provider}
+                  row={row}
+                  isPlaying={playingUrl === row.audio_url}
+                  onPlay={handlePlay}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AudioRow({ row, isPlaying, onPlay }) {
+  const config = PROVIDER_CONFIG[row.provider]
+  const severityStyles = {
+    match: { background: 'rgba(19, 239, 147, 0.15)', color: '#13ef93', label: 'MATCH' },
+    critical: { background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', label: 'CRITICAL' },
+    minor: { background: 'rgba(234, 179, 8, 0.15)', color: '#eab308', label: 'MINOR' },
+  }
+  const badge = row.match ? severityStyles.match : severityStyles[row.severity] || severityStyles.minor
+
+  return (
+    <div
+      className="flex items-start gap-3 py-2"
+      style={{ borderBottom: '1px solid var(--bg-medium)' }}
+    >
+      {/* Play button */}
+      {row.audio_url ? (
+        <button
+          onClick={() => onPlay(row.audio_url)}
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-sm"
+          style={{ background: 'var(--bg-medium)', color: 'var(--text-primary)' }}
+          title={isPlaying ? 'Pause' : 'Play'}
+        >
+          {isPlaying ? '⏸' : '▶'}
+        </button>
+      ) : (
+        <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-xs"
+          style={{ background: 'var(--bg-medium)', color: 'var(--text-disabled)' }}
+          title="No audio available"
+        >
+          —
+        </div>
+      )}
+
+      <div className="flex-1 min-w-0">
+        {/* Provider name + badge */}
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-medium" style={{ color: config?.color || 'var(--text-body)' }}>
+            {config?.vendor} {getChartLabel(row.provider)}
+          </span>
+          <span
+            className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase"
+            style={{ background: badge.background, color: badge.color }}
+          >
+            {badge.label}
+          </span>
+        </div>
+
+        {/* Transcript */}
+        <p
+          className="text-xs leading-relaxed"
+          style={{ color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+        >
+          {row.transcript || '(no transcript)'}
+        </p>
       </div>
     </div>
   )
