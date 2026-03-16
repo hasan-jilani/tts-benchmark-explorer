@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, Customized, CartesianGrid } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts'
 import { PROVIDER_CONFIG, getChartLabel } from '../lib/providers'
 import { computeLatencyStats, computeWarmupPenalty, getLatencyCategories } from '../lib/stats'
 
@@ -204,7 +204,34 @@ export default function LatencyRankings({ data, selectedProviders }) {
               axisLine={{ stroke: 'var(--bg-medium)' }}
               tickLine={false}
               interval={0}
-              height={70}
+              height={showWarmup ? 85 : 70}
+              label={
+                showWarmup
+                  ? ({ viewBox }) => {
+                      const cx = viewBox.x + viewBox.width / 2
+                      const by = viewBox.y + viewBox.height - 5
+                      const gap = 8
+                      const ss = 'Steady state'
+                      const csp = 'Cold start penalty'
+                      const boxSize = 8
+                      const ssWidth = ss.length * 5.5 + boxSize + 4
+                      const totalWidth = ssWidth + gap + csp.length * 5.5 + boxSize + 4
+                      const startX = cx - totalWidth / 2
+                      return (
+                        <g>
+                          <rect x={startX} y={by - boxSize / 2 - 1} width={boxSize} height={boxSize} rx={2} fill="var(--text-muted)" />
+                          <text x={startX + boxSize + 4} y={by} fill="var(--text-muted)" fontSize={10} dominantBaseline="central">
+                            {ss}
+                          </text>
+                          <rect x={startX + ssWidth + gap} y={by - boxSize / 2 - 1} width={boxSize} height={boxSize} rx={2} fill="var(--text-muted)" fillOpacity={0.25} />
+                          <text x={startX + ssWidth + gap + boxSize + 4} y={by} fill="var(--text-muted)" fontSize={10} dominantBaseline="central">
+                            {csp}
+                          </text>
+                        </g>
+                      )
+                    }
+                  : undefined
+              }
             />
             <YAxis
               tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
@@ -286,20 +313,6 @@ export default function LatencyRankings({ data, selectedProviders }) {
       ) : (
         <div className="h-96 flex items-center justify-center" style={{ color: 'var(--text-disabled)' }}>
           No data for selected models
-        </div>
-      )}
-
-      {/* Legend when warmup shown */}
-      {showWarmup && sorted.length > 0 && (
-        <div className="flex items-center gap-4 mt-0 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: 'var(--text-muted)' }} />
-            Steady state
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: 'var(--text-muted)', opacity: 0.25 }} />
-            Cold start penalty
-          </span>
         </div>
       )}
 

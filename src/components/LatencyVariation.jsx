@@ -295,7 +295,7 @@ export default function LatencyVariation({ data, selectedProviders }) {
 
       {/* Takeaway */}
       {sorted.length >= 2 && (
-        <Takeaway stats={sorted} />
+        <Takeaway stats={sorted} category={category} />
       )}
     </div>
   )
@@ -334,13 +334,14 @@ function BoxPlotShapeWrapper({ chartData, maxValue }) {
   }
 }
 
-function Takeaway({ stats }) {
+function Takeaway({ stats, category }) {
   const dg = stats.find(s => s.provider === 'deepgram-aura2')
   if (!dg) return null
 
   const others = stats.filter(s => s.provider !== 'deepgram-aura2')
   if (!others.length) return null
 
+  const categoryLabel = category === 'all' ? '' : ` on ${category} content`
   const dgRange = dg.p95 - dg.p5
   const widest = others.reduce((a, b) => ((b.p95 - b.p5) > (a.p95 - a.p5) ? b : a))
   const widestRange = widest.p95 - widest.p5
@@ -349,9 +350,9 @@ function Takeaway({ stats }) {
   let text
   if (dgRange <= widestRange) {
     const ratio = (widestRange / dgRange).toFixed(1)
-    text = `Deepgram Aura-2 has the tightest latency distribution (p5–p95: ${Math.round(dg.p5)}–${Math.round(dg.p95)}ms). ${widestConfig?.vendor} ${getChartLabel(widest.provider)} has ${ratio}x wider variance (${Math.round(widest.p5)}–${Math.round(widest.p95)}ms).`
+    text = `Deepgram Aura-2 has the tightest latency distribution${categoryLabel} (p5–p95: ${Math.round(dg.p5)}–${Math.round(dg.p95)}ms). ${widestConfig?.vendor} ${getChartLabel(widest.provider)} has ${ratio}x wider variance (${Math.round(widest.p5)}–${Math.round(widest.p95)}ms).`
   } else {
-    text = `Deepgram Aura-2 latency ranges from ${Math.round(dg.p5)}ms to ${Math.round(dg.p95)}ms (p5–p95).`
+    text = `Deepgram Aura-2 latency${categoryLabel} ranges from ${Math.round(dg.p5)}ms to ${Math.round(dg.p95)}ms (p5–p95).`
   }
 
   return (
