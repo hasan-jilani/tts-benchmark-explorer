@@ -287,11 +287,25 @@ function AudioSamples({ data, subcategory, selectedProviders }) {
       r => r.subcategory === subcategory && selectedProviders.includes(r.provider)
     )
 
-    // Group by prompt_id + provider, keep first iteration only
+    // Pick best iteration per prompt × provider:
+    // DG: pick a match iteration (best case)
+    // Competitors: pick worst severity (most dramatic)
+    const severityRank = { critical: 3, minor: 2, none: 1 }
     const byPromptProvider = {}
     for (const row of filtered) {
       const key = `${row.prompt_id}:${row.provider}`
-      if (!byPromptProvider[key]) byPromptProvider[key] = row
+      const existing = byPromptProvider[key]
+      if (row.provider === 'deepgram-aura2') {
+        // Prefer match over non-match
+        if (!existing || (row.match === true && existing.match !== true)) {
+          byPromptProvider[key] = row
+        }
+      } else {
+        // Prefer worst severity
+        const rRank = severityRank[row.severity] || 0
+        const eRank = existing ? (severityRank[existing.severity] || 0) : -1
+        if (rRank > eRank) byPromptProvider[key] = row
+      }
     }
     const deduped = Object.values(byPromptProvider)
 
@@ -302,28 +316,30 @@ function AudioSamples({ data, subcategory, selectedProviders }) {
       byPrompt[row.prompt_id].push(row)
     }
 
-    // Find prompts where DG matched and at least one competitor is critical
+    // Find prompts where DG matched (with audio) and at least one competitor is critical (with audio)
     const candidates = []
     for (const [promptId, rows] of Object.entries(byPrompt)) {
       const dgRow = rows.find(r => r.provider === 'deepgram-aura2')
-      if (!dgRow || dgRow.match !== true) continue
+      if (!dgRow || dgRow.match !== true || !dgRow.audio_url) continue
 
       const competitorRows = rows.filter(r => r.provider !== 'deepgram-aura2')
-      const criticalCount = competitorRows.filter(r => r.severity === 'critical').length
+      // Only include competitors that have audio
+      const withAudio = competitorRows.filter(r =>
+        (r.severity === 'critical' || r.severity === 'minor') && r.audio_url
+      )
+      const criticalCount = withAudio.filter(r => r.severity === 'critical').length
       if (criticalCount === 0) continue
 
       candidates.push({
         promptId,
         original: dgRow.original,
         dgRow,
-        competitors: competitorRows
-          .filter(r => r.severity === 'critical' || r.severity === 'minor')
-          .sort((a, b) => {
-            // critical first, then minor
-            if (a.severity === 'critical' && b.severity !== 'critical') return -1
-            if (a.severity !== 'critical' && b.severity === 'critical') return 1
-            return 0
-          }),
+        competitors: withAudio.sort((a, b) => {
+          // critical first, then minor
+          if (a.severity === 'critical' && b.severity !== 'critical') return -1
+          if (a.severity !== 'critical' && b.severity === 'critical') return 1
+          return 0
+        }),
         criticalCount,
       })
     }
