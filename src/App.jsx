@@ -4,6 +4,7 @@ import ProviderSidebar from './components/ProviderSidebar'
 import DataStatus from './components/DataStatus'
 import LatencyRankings from './components/LatencyRankings'
 import LatencyVariation from './components/LatencyVariation'
+import AccuracyRankings from './components/AccuracyRankings'
 import { useLatencyData, useWerData } from './lib/hooks'
 import { DEFAULT_SELECTED, PROVIDER_CONFIG } from './lib/providers'
 
@@ -45,6 +46,12 @@ export default function App() {
                     selectedProviders={selectedProviders}
                   />
                 </>
+              )}
+              {!wer.loading && !wer.error && (
+                <AccuracyRankings
+                  data={wer.data}
+                  selectedProviders={selectedProviders}
+                />
               )}
               {latency.loading && (
                 <div className="p-6 rounded-lg" style={{ background: 'var(--bg-dark)', color: 'var(--text-disabled)' }}>

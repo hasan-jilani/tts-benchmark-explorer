@@ -114,7 +114,16 @@ export default function LatencyRankings({ data, selectedProviders }) {
 
   // Sort by selected metric ascending (fastest first)
   const sorted = useMemo(() => {
-    return [...chartData].sort((a, b) => a[metric] - b[metric])
+    return [...chartData].sort((a, b) => {
+      const aDisplay = Math.round(a[metric])
+      const bDisplay = Math.round(b[metric])
+      if (aDisplay === bDisplay) {
+        if (a.provider === 'deepgram-aura2') return -1
+        if (b.provider === 'deepgram-aura2') return 1
+        return 0
+      }
+      return a[metric] - b[metric]
+    })
   }, [chartData, metric])
 
   // Y-axis max: round up to next 200ms increment, with headroom for data labels
@@ -371,14 +380,18 @@ function Takeaway({ stats, metric, category, showWarmup }) {
 
   let text
   if (dgVal <= closestVal) {
-    if (gap < 10) {
-      text = `Deepgram Aura-2 edges out ${closestConfig?.vendor} ${getChartLabel(closest.provider)} — ${Math.round(dgVal)}ms vs ${Math.round(closestVal)}ms ${metricLabel}${categoryLabel}, a ${gap}% advantage.`
+    if (gap < 5) {
+      text = `Deepgram Aura-2 edges out ${closestConfig?.vendor} ${getChartLabel(closest.provider)} — ${Math.round(dgVal)}ms vs ${Math.round(closestVal)}ms ${metricLabel}${categoryLabel}.`
     } else {
       text = `Deepgram Aura-2 leads at ${Math.round(dgVal)}ms ${metricLabel}${categoryLabel} — ${gap}% faster than ${closestConfig?.vendor} ${getChartLabel(closest.provider)} (${Math.round(closestVal)}ms).`
     }
   } else {
-    const behindGap = ((dgVal - closestVal) / closestVal * 100).toFixed(0)
-    text = `Deepgram Aura-2 is within ${behindGap}% of ${closestConfig?.vendor} ${getChartLabel(closest.provider)}${categoryLabel} at ${Math.round(dgVal)}ms vs ${Math.round(closestVal)}ms ${metricLabel}.`
+    const behindPct = ((dgVal - closestVal) / closestVal * 100)
+    if (behindPct <= 15) {
+      text = `Deepgram Aura-2 is neck and neck with ${closestConfig?.vendor} ${getChartLabel(closest.provider)} — ${Math.round(dgVal)}ms vs ${Math.round(closestVal)}ms ${metricLabel}${categoryLabel}.`
+    } else {
+      text = `Deepgram Aura-2 is within ${behindPct.toFixed(0)}% of ${closestConfig?.vendor} ${getChartLabel(closest.provider)}${categoryLabel} at ${Math.round(dgVal)}ms vs ${Math.round(closestVal)}ms ${metricLabel}.`
+    }
   }
 
   if (showWarmup && dg.warmupPenalty >= 0) {

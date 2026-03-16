@@ -140,3 +140,57 @@ export function computeBoxPlotStats(data, selectedProviders, category) {
 export function getLatencyCategories(data) {
   return [...new Set(data.map(r => r.category))].sort()
 }
+
+// ── Accuracy / WER helpers ──────────────────────────────────
+
+// Compute WER, PER, and Critical PER per provider
+export function computeAccuracyStats(data, selectedProviders, category) {
+  const filtered = data.filter(r => {
+    if (!selectedProviders.includes(r.provider)) return false
+    if (category && category !== 'all') {
+      // category can be a top-level category or a subcategory
+      if (r.category !== category && r.subcategory !== category) return false
+    }
+    return true
+  })
+
+  const byProvider = {}
+  for (const row of filtered) {
+    if (!byProvider[row.provider]) byProvider[row.provider] = []
+    byProvider[row.provider].push(row)
+  }
+
+  return Object.entries(byProvider).map(([provider, rows]) => {
+    const accuracies = rows
+      .filter(r => r.word_accuracy != null)
+      .map(r => r.word_accuracy)
+    const wer = accuracies.length > 0
+      ? (1 - mean(accuracies)) * 100
+      : 0
+
+    const total = rows.length
+    const per = total > 0
+      ? (rows.filter(r => r.match === false).length / total) * 100
+      : 0
+    const criticalPer = total > 0
+      ? (rows.filter(r => r.severity === 'critical').length / total) * 100
+      : 0
+
+    return { provider, wer, per, criticalPer, n: total }
+  })
+}
+
+// Get unique top-level categories from wer_results
+export function getWerCategories(data) {
+  return [...new Set(data.map(r => r.category).filter(Boolean))].sort()
+}
+
+// Get unique subcategories for a given top-level category
+export function getWerSubcategories(data, category) {
+  return [...new Set(
+    data
+      .filter(r => r.category === category)
+      .map(r => r.subcategory)
+      .filter(Boolean)
+  )].sort()
+}
