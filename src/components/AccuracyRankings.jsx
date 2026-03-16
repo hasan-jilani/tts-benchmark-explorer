@@ -330,22 +330,33 @@ function AudioSamples({ data, subcategory, selectedProviders }) {
       const criticalCount = withAudio.filter(r => r.severity === 'critical').length
       if (criticalCount === 0) continue
 
+      // Score by priority — failures from high-priority competitors matter more
+      const priorityScore = withAudio
+        .filter(r => r.severity === 'critical')
+        .reduce((sum, r) => {
+          const p = PROVIDER_CONFIG[r.provider]?.priority ?? 99
+          return sum + (10 - Math.min(p, 9)) // higher priority = higher score
+        }, 0)
+
       candidates.push({
         promptId,
         original: dgRow.original,
         dgRow,
         competitors: withAudio.sort((a, b) => {
-          // critical first, then minor
+          // critical first, then minor; within same severity, sort by priority
           if (a.severity === 'critical' && b.severity !== 'critical') return -1
           if (a.severity !== 'critical' && b.severity === 'critical') return 1
-          return 0
+          const aPri = PROVIDER_CONFIG[a.provider]?.priority ?? 99
+          const bPri = PROVIDER_CONFIG[b.provider]?.priority ?? 99
+          return aPri - bPri
         }),
         criticalCount,
+        priorityScore,
       })
     }
 
-    // Rank by number of critical competitors, take top 3
-    candidates.sort((a, b) => b.criticalCount - a.criticalCount)
+    // Rank by priority score (high-priority competitor failures first), then by count
+    candidates.sort((a, b) => b.priorityScore - a.priorityScore || b.criticalCount - a.criticalCount)
     return candidates.slice(0, 3)
   }, [data, subcategory, selectedProviders])
 
