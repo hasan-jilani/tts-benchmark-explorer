@@ -306,23 +306,98 @@ Minimal for v1 (sales-driven, prospects already in funnel):
 ### Mobile
 Responsive design from v1. Prospects may open the link on their phone during a sales call. Charts should stack vertically and remain readable on smaller screens.
 
+## Decisions Made
+
+### Data Architecture (implemented)
+- **Supabase** project: `deepgram-benchmarks` (us-east-1, free tier)
+- **3 tables**: `providers`, `latency_results`, `wer_results` — no separate prompt tables, category/subcategory denormalized in results tables
+- **Per-provider CSVs** as local source of truth (`results-latency/{provider}.csv`, `results-wer/{provider}.csv`)
+- **Atomic push** via Postgres RPC functions — delete + insert per provider in one transaction, no partial data visible to frontend during updates
+- **9 providers** with both latency and WER data (latency-only legacy providers excluded from explorer)
+- **Audio files** in Supabase Storage bucket, tracked via `audio_url` column on `wer_results`
+- **No historical versioning** — atomic replace per provider. Git tracks CSV history locally.
+- **Schema scales** via new tables per benchmark type (Option A) — when STT/VA API benchmarks come, add `stt_results` etc.
+
+### Provider Set (9 — all with both latency + WER)
+1. Deepgram Aura-2
+2. Cartesia Sonic 3
+3. ElevenLabs Flash v2.5
+4. ElevenLabs Multilingual v2 (norm on)
+5. ElevenLabs Multilingual v2 (norm off)
+6. OpenAI gpt-4o-mini-tts
+7. OpenAI tts-1
+8. Rime Mist v2 (norm on)
+9. Rime Mist v2 (norm off)
+
+Each vendor's recommended voice agent model: DG=Aura-2, Cartesia=Sonic 3, EL=Flash v2.5, OpenAI=gpt-4o-mini-tts, Rime=Mist v2.
+
+### Chart Copy System
+Each chart section has three layers of text:
+
+1. **Metric explanation** — what's being measured, adapts to current metric toggle + category filter. Composed from fragments: metric phrase + category context + "why it matters for voice agents."
+
+2. **Expandable definition** — collapsible "What is TTFA?" / "What is Critical PER?" accordion. Static per metric.
+
+3. **Opinionated takeaway** — data-driven copy framing DG vs the selected competitors. Adapts to provider selection, metric toggle, and category filter. Always frames DG's position relative to the field (not competitor-vs-competitor).
+
+**Copy generation approach:**
+- Pre-generate all metric × category fragment combinations (~58 permutations) using an LLM at build time
+- LLM follows strict guidelines: opinionated toward DG differentiation, grounded in data, voice-agent framing
+- Output is a static JSON file reviewed and edited before shipping
+- Takeaway templates include placeholders (`{dg_val}`, `{runner_up}`, `{gap_pct}`) that the frontend fills at runtime based on which providers are selected
+- Regenerate when benchmark data changes (new run, new providers)
+
+**Example (Chart 1, median TTFA, alphanumeric, DG + Flash + Sonic 3):**
+> **Deepgram Aura-2 leads on alphanumeric content at 136ms median TTFA** — 10% faster than ElevenLabs Flash v2.5 and 27% faster than Cartesia Sonic 3.
+
+**Takeaway template logic:**
+- DG is leader + large gap → "leads at {val}, {gap}% faster than {runner_up}"
+- DG is leader + small gap → "edges out {runner_up} — {dg_val} vs {runner_val}"
+- DG is not leader → "is within {gap}% of {leader}"
+- 2 providers → head-to-head framing
+- 3+ providers → field framing
+
+### Content Type Taxonomy
+**Latency** (8 categories, 25 prompts): conversational-short, conversational-medium, conversational-long, customer-service, ivr, casual, alphanumeric, mixed
+
+**WER** (4 categories → 23 subcategories, 80 prompts):
+- conversational: customer-service, agent, ivr
+- formatted-entities: currency, address, date, number
+- identifiers: confirmation, vin, reference, tracking, serial, order-id, plate
+- mixed: billing, order+tracking, sales, security, tech, serial+model, account+ref, banking, subscription
+
+### Metrics (all computed client-side from raw data)
+- **WER**: `1 - mean(word_accuracy)` across all comparisons (error rows excluded)
+- **PER**: `count(match=false) / total comparisons`
+- **Critical PER**: `count(severity='critical') / total comparisons`
+- **TTFA**: median/mean/p95 of `ttfa_ms` (warmup and error rows excluded)
+
+### Design
+- Companion site to [TTS Performance Lab](https://tts-comparison-demo.fly.dev/)
+- Dark theme matching the demo's look
+- Design tokens in `docs/design-tokens.md`
+- Skip Roobert Pro (custom font) — use Inter throughout like the demo
+- Playwright for functional testing (charts render, filters work, data loads)
+
+### Development Approach
+- Iterative: scaffold → chart 1 → review → chart 2 → etc.
+- Each chart built and reviewed before starting the next
+- Playwright tests added per chart
+
 ## Open Questions
 
-1. **Audio hosting** — WAV files for accuracy deep dive need hosting. Supabase storage or S3? Or bundle with the frontend deploy?
-2. **Price data** — Include pricing in scatterplot bubble size and heatmap? Requires data collection. Coval has it.
-3. **Raw data download** — Let visitors download CSVs? Builds trust but gives competitors your data.
+1. **Price data** — Include pricing in scatterplot bubble size and heatmap? Requires data collection. Coval has it.
+2. **Raw data download** — Let visitors download CSVs? Builds trust but gives competitors your data.
 
 ## Milestones
 
-1. **Scaffold frontend** — React + Vite + Tailwind, dark theme, deploy to Fly.io
-2. **Database setup** — Supabase tables, push script from benchmark CSVs
-3. **Provider sidebar** — persistent selector with vendor grouping
-4. **Chart 1: Latency Rankings** — hero bar chart with metric toggle + warmup toggle
-5. **Chart 2: Latency Variation** — box plots
-6. **Chart 3: Accuracy Rankings** — bar chart with WER/PER/Critical PER toggle
-7. **Chart 4: Accuracy Deep Dive** — subcategory breakdown + audio samples
-8. **Chart 5: Scatterplot** — TTFA vs WER
-9. **Chart 6: Heatmap** — sortable performance table
-10. **About page** — methodology, disclosure, GitHub link
-11. **Polish** — loading states, mobile responsive, animations
-12. **STT / VA API tabs** — coming soon pages
+1. **Scaffold frontend** — React + Vite + Tailwind + Playwright, dark theme, Supabase connection, provider sidebar
+2. **Chart 1: Latency Rankings** — hero bar chart with metric toggle + category filter + copy system
+3. **Chart 2: Latency Variation** — box plots
+4. **Chart 3: Accuracy Rankings** — bar chart with WER/PER/Critical PER toggle
+5. **Chart 4: Accuracy Deep Dive** — subcategory breakdown + audio samples
+6. **Chart 5: Scatterplot** — TTFA vs WER
+7. **Chart 6: Heatmap** — sortable performance table
+8. **About page** — methodology, disclosure, GitHub link
+9. **Polish** — loading states, mobile responsive, animations
+10. **STT / VA API tabs** — coming soon pages

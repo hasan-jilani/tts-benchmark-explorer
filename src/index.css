@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  /* Deepgram brand colors */
+  --dg-green: #13ef93;
+  --dg-green-light: #a1f9d4;
+  --dg-green-dark: #075433;
+
+  /* Provider colors */
+  --color-deepgram: #13ef93;
+  --color-elevenlabs: #149afb;
+  --color-elevenlabs-light: #a1d7fd;
+  --color-elevenlabs-dark: #0a6fbd;
+  --color-cartesia: #ae63f9;
+  --color-rime: #ee028c;
+  --color-openai: #fec84b;
+
+  /* Semantic */
+  --color-success: #12b76a;
+  --color-warning: #fec84b;
+  --color-error: #f04438;
+
+  /* Dark theme */
+  --bg-darkest: #0b0b0c;
+  --bg-dark: #101014;
+  --bg-medium-dark: #1a1a1f;
+  --bg-medium: #232329;
+  --bg-lighter: #2c2c33;
+
+  --text-primary: #fbfbff;
+  --text-body: #ededf2;
+  --text-secondary: #e1e1e5;
+  --text-tertiary: #bbbbbf;
+  --text-muted: #949498;
+  --text-disabled: #4e4e52;
+
+  --link: #79affa;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-darkest);
+  color: var(--text-body);
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Custom select dropdown */
+.select-wrap {
+  position: relative;
+  display: inline-block;
+}
+.select-wrap select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2rem;
+}
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-muted);
+  pointer-events: none;
+}
+
+/* Suppress focus outline on chart SVGs */
+.recharts-wrapper *:focus {
+  outline: none;
+}
+
+/* Sidebar model buttons */
+.model-btn {
+  transition: background 150ms, border-color 150ms, color 150ms, box-shadow 150ms;
+}
+.model-btn:not([data-always-on="true"]) {
+  cursor: pointer;
+}
+.model-btn[data-always-on="true"] {
+  cursor: default;
+}

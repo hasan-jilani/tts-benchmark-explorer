@@ -1,0 +1,37 @@
+{
+  "name": "tts-benchmark-explorer",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hasan-jilani/tts-benchmark-explorer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/hasan-jilani/tts-benchmark-explorer/issues"
+  },
+  "homepage": "https://github.com/hasan-jilani/tts-benchmark-explorer#readme",
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@supabase/supabase-js": "^2.99.1",
+    "@tailwindcss/vite": "^4.2.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "recharts": "^3.8.0",
+    "tailwindcss": "^4.2.1",
+    "vite": "^6.4.1"
+  }
+}

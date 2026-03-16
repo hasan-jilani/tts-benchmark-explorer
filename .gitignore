@@ -2,3 +2,7 @@ node_modules/
 .env
 .DS_Store
 docs/reference-sites/
+dist/
+test-results/
+playwright-report/
+supabase_api_key
